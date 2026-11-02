@@ -74,6 +74,8 @@ tr:last-child td{border-bottom:0}.muted{color:var(--muted);font-size:12px}.statu
 <div class="wide"><label for="companyAddress">Alamat Syarikat</label><textarea id="companyAddress" maxlength="500"></textarea></div>
 <div><label for="personalPhone">No. Telefon (Persendirian)</label><input id="personalPhone" type="tel" maxlength="25"></div>
 <div><label for="companyPhone">No. Telefon (Syarikat)</label><input id="companyPhone" type="tel" maxlength="25"></div>
+        <div><label for="installationNo">Kod Instalasi</label><input id="installationNo" maxlength="80" placeholder="Kod / nombor instalasi"></div>
+<div class="wide"><label for="installationAddress">Alamat Tempat Instalasi</label><textarea id="installationAddress" maxlength="500" placeholder="Alamat lokasi instalasi"></textarea></div>
 <div><label for="company">Nama Syarikat *</label><input id="company" required maxlength="150" placeholder="Nama syarikat"></div>
 <div><label for="ref">No. Rujukan / ID (jika ada)</label><input id="ref" maxlength="80" placeholder="No. rujukan"></div>
         <div><label for="approved">Tarikh Lulus e-Vetting</label><input id="approved" type="date"></div>
@@ -92,7 +94,7 @@ tr:last-child td{border-bottom:0}.muted{color:var(--muted);font-size:12px}.statu
       <select id="sort"><option value="expiry">Susun: Tarikh luput terdekat</option><option value="name">Susun: Nama A–Z</option><option value="company">Susun: Syarikat A–Z</option><option value="updated">Susun: Semakan terkini</option></select>
     </div>
     <div class="tablewrap"><table>
-      <thead><tr><th>Bil.</th><th>Nama / ID</th><th>Syarikat</th><th>Tarikh Lulus</th><th>Tarikh Luput</th><th>Baki Hari</th><th>Status</th><th>Semakan Terakhir</th><th>Catatan / Tindakan</th><th class="hideprint">Tindakan</th></tr></thead>
+      <thead><tr><th>Bil.</th><th>Nama / ID</th><th>Syarikat</th><th>Kod Instalasi</th><th>Alamat Tempat Instalasi</th><th>Tarikh Lulus</th><th>Tarikh Luput</th><th>Baki Hari</th><th>Status</th><th>Semakan Terakhir</th><th>Catatan / Tindakan</th><th class="hideprint">Tindakan</th></tr></thead>
       <tbody id="rows"></tbody>
     </table></div>
     <div class="footer" id="recordCount">0 rekod</div>
@@ -131,9 +133,9 @@ function render(){
  records.forEach(r=>counts[status(r)]++);
  $('total').textContent=records.length;$('active').textContent=counts.AKTIF;$('near').textContent=counts['HAMPIR LUPUT'];$('expired').textContent=counts.LUPUT;$('unverified').textContent=counts['BELUM DISAHKAN'];
  const q=$('search').value.trim().toLowerCase(), sf=$('statusFilter').value, sort=$('sort').value;
- let list=records.filter(r=>(!q||[r.name,r.company,r.ref,r.ic].some(v=>(v||'').toLowerCase().includes(q)))&&(!sf||status(r)===sf));
+ let list=records.filter(r=>(!q||[r.name,r.company,r.ref,r.ic,r.installationNo,r.installationAddress].some(v=>(v||'').toLowerCase().includes(q)))&&(!sf||status(r)===sf));
  list.sort((a,b)=>{if(sort==='name')return a.name.localeCompare(b.name);if(sort==='company')return a.company.localeCompare(b.company);if(sort==='updated')return (b.checked||'').localeCompare(a.checked||'');return (a.expiry||'9999-99-99').localeCompare(b.expiry||'9999-99-99')});
- $('rows').innerHTML=list.length?list.map((r,i)=>{const s=status(r),n=daysLeft(r.expiry);let bal=r.expiry?(n<0?Math.abs(n)+' hari lepas':n+' hari'):'—';return `<tr><td>${i+1}</td><td><strong>${esc(r.name)}</strong><div class="muted">${esc(r.ref||'')}</div></td><td>${esc(r.company)}</td><td>${fmtDate(r.approved)}</td><td>${fmtDate(r.expiry)}</td><td>${bal}</td><td><span class="status ${statusClass(s)}">${s}</span></td><td>${fmtDate(r.checked)}</td><td>${esc(r.notes||'—')}</td><td class="hideprint"><div class="rowactions"><button class="secondary" data-edit="${r.id}">Edit</button><button class="danger" data-del="${r.id}">Padam</button></div></td></tr>`}).join(''):'<tr><td colspan="10" class="empty">Tiada rekod dijumpai. Tekan “Daftar Kontraktor” untuk mula.</td></tr>';
+ $('rows').innerHTML=list.length?list.map((r,i)=>{const s=status(r),n=daysLeft(r.expiry);let bal=r.expiry?(n<0?Math.abs(n)+' hari lepas':n+' hari'):'—';return `<tr><td>${i+1}</td><td><strong>${esc(r.name)}</strong><div class="muted">${esc(r.ref||'')}</div></td><td>${esc(r.company)}</td><td>${esc(r.installationNo||'—')}</td><td>${esc(r.installationAddress||'—')}</td><td>${fmtDate(r.approved)}</td><td>${fmtDate(r.expiry)}</td><td>${bal}</td><td><span class="status ${statusClass(s)}">${s}</span></td><td>${fmtDate(r.checked)}</td><td>${esc(r.notes||'—')}</td><td class="hideprint"><div class="rowactions"><button class="secondary" data-edit="${r.id}">Edit</button><button class="danger" data-del="${r.id}">Padam</button></div></td></tr>`}).join(''):'<tr><td colspan="12" class="empty">Tiada rekod dijumpai. Tekan “Daftar Kontraktor” untuk mula.</td></tr>';
  $('recordCount').textContent=`Paparan ${list.length} daripada ${records.length} rekod. Status “Hampir Luput” ialah 0–30 hari sebelum tarikh luput.`;
  $('historyRows').innerHTML=history.length?history.slice(0,100).map(h=>`<tr><td>${esc(new Date(h.at).toLocaleString('ms-MY'))}</td><td>${esc(h.name)}</td><td>${esc(h.action)}</td><td>${fmtDate(h.expiry)}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Belum ada sejarah kemas kini.</td></tr>';
 }
@@ -149,6 +151,8 @@ $('race').value=r?.race||'';
 $('companyAddress').value=r?.companyAddress||'';
 $('personalPhone').value=r?.personalPhone||'';
 $('companyPhone').value=r?.companyPhone||'';
+$('installationNo').value=r?.installationNo||'';
+$('installationAddress').value=r?.installationAddress||'';
 $('company').value=r?.company||'';
 $('ref').value=r?.ref||'';
 $('approved').value=r?.approved||'';
@@ -166,12 +170,13 @@ const nationality=$('nationality').value,ic=$('ic').value.trim();
 const gender=$('gender').value,religion=$('religion').value,race=$('race').value;
 const companyAddress=$('companyAddress').value.trim();
 const personalPhone=$('personalPhone').value.trim(),companyPhone=$('companyPhone').value.trim();
+const installationNo=$('installationNo').value.trim(),installationAddress=$('installationAddress').value.trim();
 if(!name||!company)return;
  const old=editingId?records.find(r=>r.id===editingId):null;
  const r={
  id:editingId||('C'+Date.now()+Math.random().toString(16).slice(2,6)),
  name,company,nationality,ic,gender,religion,race,
- companyAddress,personalPhone,companyPhone,
+ companyAddress,personalPhone,companyPhone,installationNo,installationAddress,
  ref:$('ref').value.trim(),
  approved:$('approved').value,
  expiry:$('expiry').value,
@@ -200,8 +205,8 @@ $('importFile').addEventListener('change',async e=>{
  }catch(err){alert('Fail tidak sah atau rosak. Tiada perubahan dibuat.')}finally{$('importFile').value=''}
 });
 $('csvBtn').addEventListener('click',()=>{
- const cols=['Nama Kontraktor','Syarikat','No Rujukan/ID','Tarikh Lulus','Tarikh Luput','Baki Hari','Status','Tarikh Semakan Terakhir','Catatan'];
- const rows=records.map(r=>[r.name,r.company,r.ref,r.approved,r.expiry,daysLeft(r.expiry)??'',status(r),r.checked,r.notes]);
+ const cols=['Nama Kontraktor','Syarikat','Kod Instalasi','Alamat Tempat Instalasi','No Rujukan/ID','Tarikh Lulus','Tarikh Luput','Baki Hari','Status','Tarikh Semakan Terakhir','Catatan'];
+ const rows=records.map(r=>[r.name,r.company,r.installationNo,r.installationAddress,r.ref,r.approved,r.expiry,daysLeft(r.expiry)??'',status(r),r.checked,r.notes]);
  const csv=[cols,...rows].map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
  download('Laporan_eVetting_PMU_'+isoToday()+'.csv','\ufeff'+csv,'text/csv;charset=utf-8');
 });

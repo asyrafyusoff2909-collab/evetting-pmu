@@ -64,10 +64,17 @@ tr:last-child td{border-bottom:0}.muted{color:var(--muted);font-size:12px}.statu
     <h2 id="formTitle">Daftar Kontraktor</h2>
     <form id="contractorForm">
       <input type="hidden" id="recordId">
-      <div class="formgrid">
-        <div><label for="name">Nama Kontraktor *</label><input id="name" required maxlength="120" placeholder="Nama seperti dalam rekod"></div>
-        <div><label for="company">Syarikat *</label><input id="company" required maxlength="150" placeholder="Nama syarikat"></div>
-        <div><label for="ref">No. Rujukan / ID (jika ada)</label><input id="ref" maxlength="80" placeholder="No. rujukan"></div>
+      <div><label for="name">Nama Penuh *</label><input id="name" required maxlength="120" placeholder="Nama penuh"></div>
+<div><label for="nationality">Warganegara</label><select id="nationality"><option value="">Pilih</option><option>Malaysia</option><option>Bukan Warganegara</option></select></div>
+<div><label for="ic">No. Kad Pengenalan</label><input id="ic" maxlength="20" placeholder="No. IC / Pasport"></div>
+<div><label for="gender">Jantina</label><select id="gender"><option value="">Pilih</option><option>Lelaki</option><option>Perempuan</option></select></div>
+<div><label for="religion">Agama</label><select id="religion"><option value="">Pilih</option><option>Islam</option><option>Kristian</option><option>Buddha</option><option>Hindu</option><option>Lain-lain</option></select></div>
+<div><label for="race">Bangsa</label><select id="race"><option value="">Pilih</option><option>Melayu</option><option>Cina</option><option>India</option><option>Lain-lain</option></select></div>
+<div class="wide"><label for="companyAddress">Alamat Syarikat</label><textarea id="companyAddress" maxlength="500"></textarea></div>
+<div><label for="personalPhone">No. Telefon (Persendirian)</label><input id="personalPhone" type="tel" maxlength="25"></div>
+<div><label for="companyPhone">No. Telefon (Syarikat)</label><input id="companyPhone" type="tel" maxlength="25"></div>
+<div><label for="company">Nama Syarikat *</label><input id="company" required maxlength="150" placeholder="Nama syarikat"></div>
+<div><label for="ref">No. Rujukan / ID (jika ada)</label><input id="ref" maxlength="80" placeholder="No. rujukan"></div>
         <div><label for="approved">Tarikh Lulus e-Vetting</label><input id="approved" type="date"></div>
         <div><label for="expiry">Tarikh Luput e-Vetting</label><input id="expiry" type="date"></div>
         <div><label for="checked">Tarikh Semakan Terakhir</label><input id="checked" type="date"></div>
@@ -123,7 +130,7 @@ function render(){
  records.forEach(r=>counts[status(r)]++);
  $('total').textContent=records.length;$('active').textContent=counts.AKTIF;$('near').textContent=counts['HAMPIR LUPUT'];$('expired').textContent=counts.LUPUT;$('unverified').textContent=counts['BELUM DISAHKAN'];
  const q=$('search').value.trim().toLowerCase(), sf=$('statusFilter').value, sort=$('sort').value;
- let list=records.filter(r=>(!q||[r.name,r.company,r.ref].some(v=>(v||'').toLowerCase().includes(q)))&&(!sf||status(r)===sf));
+ let list=records.filter(r=>(!q||[r.name,r.company,r.ref,r.ic].some(v=>(v||'').toLowerCase().includes(q)))&&(!sf||status(r)===sf));
  list.sort((a,b)=>{if(sort==='name')return a.name.localeCompare(b.name);if(sort==='company')return a.company.localeCompare(b.company);if(sort==='updated')return (b.checked||'').localeCompare(a.checked||'');return (a.expiry||'9999-99-99').localeCompare(b.expiry||'9999-99-99')});
  $('rows').innerHTML=list.length?list.map((r,i)=>{const s=status(r),n=daysLeft(r.expiry);let bal=r.expiry?(n<0?Math.abs(n)+' hari lepas':n+' hari'):'—';return `<tr><td>${i+1}</td><td><strong>${esc(r.name)}</strong><div class="muted">${esc(r.ref||'')}</div></td><td>${esc(r.company)}</td><td>${fmtDate(r.approved)}</td><td>${fmtDate(r.expiry)}</td><td>${bal}</td><td><span class="status ${statusClass(s)}">${s}</span></td><td>${fmtDate(r.checked)}</td><td>${esc(r.notes||'—')}</td><td class="hideprint"><div class="rowactions"><button class="secondary" data-edit="${r.id}">Edit</button><button class="danger" data-del="${r.id}">Padam</button></div></td></tr>`}).join(''):'<tr><td colspan="10" class="empty">Tiada rekod dijumpai. Tekan “Daftar Kontraktor” untuk mula.</td></tr>';
  $('recordCount').textContent=`Paparan ${list.length} daripada ${records.length} rekod. Status “Hampir Luput” ialah 0–30 hari sebelum tarikh luput.`;
@@ -131,17 +138,47 @@ function render(){
 }
 function showForm(r){
  editingId=r?r.id:null;$('formTitle').textContent=r?'Kemaskini Rekod Kontraktor':'Daftar Kontraktor';
- $('recordId').value=r?.id||'';$('name').value=r?.name||'';$('company').value=r?.company||'';$('ref').value=r?.ref||'';
- $('approved').value=r?.approved||'';$('expiry').value=r?.expiry||'';$('checked').value=r?.checked||isoToday();$('notes').value=r?.notes||'';
+$('recordId').value=r?.id||'';
+$('name').value=r?.name||'';
+$('nationality').value=r?.nationality||'';
+$('ic').value=r?.ic||'';
+$('gender').value=r?.gender||'';
+$('religion').value=r?.religion||'';
+$('race').value=r?.race||'';
+$('companyAddress').value=r?.companyAddress||'';
+$('personalPhone').value=r?.personalPhone||'';
+$('companyPhone').value=r?.companyPhone||'';
+$('company').value=r?.company||'';
+$('ref').value=r?.ref||'';
+$('approved').value=r?.approved||'';
+$('expiry').value=r?.expiry||'';
+$('checked').value=r?.checked||isoToday();
+$('notes').value=r?.notes||'';
  $('formPanel').hidden=false;$('formPanel').scrollIntoView({behavior:'smooth',block:'start'});$('name').focus();
 }
 function hideForm(){$('formPanel').hidden=true;$('contractorForm').reset();editingId=null}
 $('newBtn').addEventListener('click',()=>showForm(null));$('cancelBtn').addEventListener('click',hideForm);
 $('contractorForm').addEventListener('submit',e=>{
  e.preventDefault();
- const name=$('name').value.trim(),company=$('company').value.trim();if(!name||!company)return;
+ const name=$('name').value.trim(),company=$('company').value.trim();
+const nationality=$('nationality').value,ic=$('ic').value.trim();
+const gender=$('gender').value,religion=$('religion').value,race=$('race').value;
+const companyAddress=$('companyAddress').value.trim();
+const personalPhone=$('personalPhone').value.trim(),companyPhone=$('companyPhone').value.trim();
+if(!name||!company)return;
  const old=editingId?records.find(r=>r.id===editingId):null;
- const r={id:editingId||('C'+Date.now()+Math.random().toString(16).slice(2,6)),name,company,ref:$('ref').value.trim(),approved:$('approved').value,expiry:$('expiry').value,checked:$('checked').value||isoToday(),notes:$('notes').value.trim(),createdAt:old?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
+ const r={
+ id:editingId||('C'+Date.now()+Math.random().toString(16).slice(2,6)),
+ name,company,nationality,ic,gender,religion,race,
+ companyAddress,personalPhone,companyPhone,
+ ref:$('ref').value.trim(),
+ approved:$('approved').value,
+ expiry:$('expiry').value,
+ checked:$('checked').value||isoToday(),
+ notes:$('notes').value.trim(),
+ createdAt:old?.createdAt||new Date().toISOString(),
+ updatedAt:new Date().toISOString()
+};
  if(old){records=records.map(x=>x.id===editingId?r:x);logChange(name,'Rekod dikemaskini',r.expiry)}else{records.push(r);logChange(name,'Rekod baharu ditambah',r.expiry)}
  persist();hideForm();render();
 });

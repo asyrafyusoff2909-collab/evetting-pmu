@@ -219,7 +219,7 @@ $('rows').addEventListener('click',async e=>{
   if(!r)return;
 
   const choice=prompt('LAMPIRAN: '+r.name+'\n\n1 - Upload fail PDF / gambar\n2 - Lihat lampiran sedia ada\n3 - Padam lampiran');
-  const bucket=sb.storage.from('evetting-attachments');
+  const bucket=sb.storage.from('evetting attachments');
 
   if(choice==='1'){
    const input=document.createElement('input');

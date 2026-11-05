@@ -102,7 +102,6 @@ th{background:#f5f8fb;color:#42566a;font-size:11px;text-transform:uppercase;posi
 <script>
 (() => {
 'use strict';
-// GANTIKAN nilai ini dengan Project URL dan Publishable API Key projek Supabase anda.
 const SUPABASE_URL = 'https://mbnuqiqcbmruoveadydj.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_yCS0bRcw_SU-y2SwU-1AJQ__4nVsCb_';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
@@ -128,44 +127,148 @@ async function loadData(){
   sb.from('evetting_records').select('*').is('deleted_at',null).order('tarikh_luput',{ascending:true,nullsFirst:false}),
   sb.from('evetting_history').select('id,record_id,user_id,tindakan,butiran,dibuat_pada').order('dibuat_pada',{ascending:false}).limit(100)
  ]);
- if(a.error)throw a.error;if(b.error)throw b.error;
- records=(a.data||[]).map(fromDb);historyRows=b.data||[];render();
+ if(a.error)throw a.error;
+ if(b.error)throw b.error;
+ records=(a.data||[]).map(fromDb);
+ historyRows=b.data||[];
+ render();
 }
 function render(){
- const counts={'AKTIF':0,'HAMPIR LUPUT':0,'LUPUT':0,'BELUM DISAHKAN':0};records.forEach(r=>counts[status({tarikh_luput:r.expiry})]++);
- $('total').textContent=records.length;$('active').textContent=counts.AKTIF;$('near').textContent=counts['HAMPIR LUPUT'];$('expired').textContent=counts.LUPUT;$('unverified').textContent=counts['BELUM DISAHKAN'];
+ const counts={'AKTIF':0,'HAMPIR LUPUT':0,'LUPUT':0,'BELUM DISAHKAN':0};
+ records.forEach(r=>counts[status({tarikh_luput:r.expiry})]++);
+ $('total').textContent=records.length;
+ $('active').textContent=counts.AKTIF;
+ $('near').textContent=counts['HAMPIR LUPUT'];
+ $('expired').textContent=counts.LUPUT;
+ $('unverified').textContent=counts['BELUM DISAHKAN'];
  const q=$('search').value.trim().toLowerCase(),sf=$('statusFilter').value,sort=$('sort').value;
  let list=records.filter(r=>(!q||[r.name,r.company,r.ref,r.ic,r.installationNo,r.installationAddress].some(v=>(v||'').toLowerCase().includes(q)))&&(!sf||status({tarikh_luput:r.expiry})===sf));
  list.sort((a,b)=>sort==='name'?a.name.localeCompare(b.name):sort==='company'?a.company.localeCompare(b.company):sort==='updated'?(b.updatedAt||'').localeCompare(a.updatedAt||''):(a.expiry||'9999-99-99').localeCompare(b.expiry||'9999-99-99'));
- $('rows').innerHTML=list.length?list.map((r,i)=>{const s=status({tarikh_luput:r.expiry}),n=daysLeft(r.expiry),bal=r.expiry?(n<0?Math.abs(n)+' hari lepas':n+' hari'):'—';return `<tr><td>${i+1}</td><td><strong>${esc(r.name)}</strong><div class="muted">${esc(r.ref)}</div></td><td>${esc(r.company)}</td><td>${esc(r.installationNo||'—')}</td><td>${esc(r.installationAddress||'—')}</td><td>${fmtDate(r.approved)}</td><td>${fmtDate(r.expiry)}</td><td>${bal}</td><td><span class="status ${s==='AKTIF'?'aktif':s==='HAMPIR LUPUT'?'hampir':s==='LUPUT'?'lup':'belum'}">${s}</span></td><td>${fmtDate(r.checked)}</td><td>${esc(r.notes||'—')}</td><td><div class="rowactions"><button class="secondary" data-edit="${r.id}">Edit</button><button class="danger" data-del="${r.id}">Padam</button></div></td></tr>`}).join(''):'<tr><td colspan="12" class="empty">Tiada rekod dijumpai.</td></tr>';
+ $('rows').innerHTML=list.length?list.map((r,i)=>{const s=status({tarikh_luput:r.expiry}),n=daysLeft(r.expiry),bal=r.expiry?(n<0?Math.abs(n)+' hari lepas':n+' hari'):'—';return `<tr><td>${i+1}</td><td><strong>${esc(r.name)}</strong><div class="muted">${esc(r.ref)}</div></td><td>${esc(r.company)}</td><td>${esc(r.installationNo||'—')}</td><td>${esc(r.installationAddress||'—')}</td><td>${fmtDate(r.approved)}</td><td>${fmtDate(r.expiry)}</td><td>${bal}</td><td><span class="status ${s==='AKTIF'?'aktif':s==='HAMPIR LUPUT'?'hampir':s==='LUPUT'?'lup':'belum'}">${s}</span></td><td>${fmtDate(r.checked)}</td><td>${esc(r.notes||'—')}</td><td><div class="rowactions"><button class="secondary" data-edit="${r.id}">Edit</button><button class="secondary" data-attach="${r.id}">Attachment</button><button class="danger" data-del="${r.id}">Padam</button></div></td></tr>`}).join(''):'<tr><td colspan="12" class="empty">Tiada rekod dijumpai.</td></tr>';
  $('recordCount').textContent=`Paparan ${list.length} daripada ${records.length} rekod. Hampir luput: 0–30 hari.`;
- $('historyRows').innerHTML=historyRows.length?historyRows.map(h=>{const d=h.butiran||{},name=d.nama||d.name||'—',detail=h.tindakan==='KEMASKINI'?'Rekod dikemaskini':h.tindakan==='TAMBAH'?'Rekod baharu ditambah':h.tindakan;return `<tr><td>${esc(new Date(h.dibuat_pada).toLocaleString('ms-MY'))}</td><td>${esc(name)}</td><td>${esc(detail)}</td><td>${esc(d.tarikh_luput||'')}</td></tr>`}).join(''):'<tr><td colspan="4" class="empty">Belum ada sejarah kemas kini.</td></tr>';
 }
-function showForm(r){editingId=r?.id||null;$('formTitle').textContent=r?'Kemaskini Rekod Kontraktor':'Daftar Kontraktor';const vals={name:'name',nationality:'nationality',ic:'ic',gender:'gender',religion:'religion',race:'race',companyAddress:'companyAddress',personalPhone:'personalPhone',companyPhone:'companyPhone',installationNo:'installationNo',installationAddress:'installationAddress',company:'company',ref:'ref',approved:'approved',expiry:'expiry',checked:'checked',notes:'notes'};Object.entries(vals).forEach(([k,id])=>$(id).value=r?.[k]||'');if(!r)$('checked').value=isoToday();$('formPanel').classList.remove('hidden');$('formPanel').scrollIntoView({behavior:'smooth'});}
+function showForm(r){
+ editingId=r?.id||null;
+ $('formTitle').textContent=r?'Kemaskini Rekod Kontraktor':'Daftar Kontraktor';
+ const vals={name:'name',nationality:'nationality',ic:'ic',gender:'gender',religion:'religion',race:'race',companyAddress:'companyAddress',personalPhone:'personalPhone',companyPhone:'companyPhone',installationNo:'installationNo',installationAddress:'installationAddress',company:'company',ref:'ref',approved:'approved',expiry:'expiry',checked:'checked',notes:'notes'};
+ Object.entries(vals).forEach(([k,id])=>$(id).value=r?.[k]||'');
+ if(!r)$('checked').value=isoToday();
+ $('formPanel').classList.remove('hidden');
+ $('formPanel').scrollIntoView({behavior:'smooth'});
+}
 function hideForm(){$('formPanel').classList.add('hidden');$('contractorForm').reset();editingId=null;}
 async function refresh(){try{await loadData();showMessage('Rekod berjaya dimuat semula.')}catch(e){showMessage('Gagal memuatkan data: '+(e.message||e.details||'Ralat sambungan/RLS'),'error');}}
 async function init(){
- const {data:{session},error}=await sb.auth.getSession();if(error)throw error;
+ const {data:{session},error}=await sb.auth.getSession();
+ if(error)throw error;
  if(session){currentUser=session.user;$('loginPanel').classList.add('hidden');$('appPanel').classList.remove('hidden');await loadData();}
  else{$('loginPanel').classList.remove('hidden');$('appPanel').classList.add('hidden');}
 }
-$('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginBtn').disabled=true;$('loginMessage').textContent='Sedang log masuk…';try{const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error)throw error;currentUser=data.user;$('loginPanel').classList.add('hidden');$('appPanel').classList.remove('hidden');await loadData();}catch(err){$('loginMessage').textContent='Log masuk/gagal memuatkan data: '+err.message;}finally{$('loginBtn').disabled=false;}});
+$('loginForm').addEventListener('submit',async e=>{
+ e.preventDefault();$('loginBtn').disabled=true;$('loginMessage').textContent='Sedang log masuk…';
+ try{const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error)throw error;currentUser=data.user;$('loginPanel').classList.add('hidden');$('appPanel').classList.remove('hidden');await loadData();}
+ catch(err){$('loginMessage').textContent='Log masuk/gagal memuatkan data: '+err.message;}
+ finally{$('loginBtn').disabled=false;}
+});
 $('logoutBtn').addEventListener('click',async()=>{await sb.auth.signOut();currentUser=null;$('appPanel').classList.add('hidden');$('loginPanel').classList.remove('hidden');});
-$('newBtn').addEventListener('click',()=>showForm(null));$('cancelBtn').addEventListener('click',hideForm);
-$('contractorForm').addEventListener('submit',async e=>{e.preventDefault();const payload=toDb();if(!payload.nama||!payload.nama_syarikat)return;$('saveBtn').disabled=true;try{
- let result;
- if(editingId)result=await sb.from('evetting_records').update({...payload,updated_by:currentUser.id}).eq('id',editingId).select().single();
- else result=await sb.from('evetting_records').insert({...payload,created_by:currentUser.id,updated_by:currentUser.id}).select().single();
- if(result.error)throw result.error;hideForm();await loadData();showMessage(editingId?'Rekod berjaya dikemaskini.':'Rekod berjaya disimpan.');
- }catch(err){showMessage('Gagal menyimpan: '+err.message,'error');}finally{$('saveBtn').disabled=false;}});
-$('rows').addEventListener('click',async e=>{const edit=e.target.closest('[data-edit]'),del=e.target.closest('[data-del]');if(edit){const r=records.find(x=>x.id===edit.dataset.edit);if(r)showForm(r);}if(del){const r=records.find(x=>x.id===del.dataset.del);if(r&&confirm('Tandakan rekod '+r.name+' sebagai dipadam? Rekod disimpan dalam sejarah.')){try{const {error}=await sb.from('evetting_records').update({deleted_at:new Date().toISOString(),deleted_by:currentUser.id}).eq('id',r.id);if(error)throw error;await loadData();showMessage('Rekod dipadam daripada senarai aktif.');}catch(err){showMessage('Gagal memadam: '+err.message,'error');}}}});
+$('newBtn').addEventListener('click',()=>showForm(null));
+$('cancelBtn').addEventListener('click',hideForm);
+$('contractorForm').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const payload=toDb();
+ if(!payload.nama||!payload.nama_syarikat)return;
+ const wasEditing=Boolean(editingId);
+ $('saveBtn').disabled=true;
+ try{
+  let result;
+  if(wasEditing)result=await sb.from('evetting_records').update({...payload,updated_by:currentUser.id}).eq('id',editingId).select().single();
+  else result=await sb.from('evetting_records').insert({...payload,created_by:currentUser.id,updated_by:currentUser.id}).select().single();
+  if(result.error)throw result.error;
+  hideForm();
+  await loadData();
+  showMessage(wasEditing?'Rekod berjaya dikemaskini.':'Rekod berjaya disimpan.');
+ }catch(err){showMessage('Gagal menyimpan: '+err.message,'error');}
+ finally{$('saveBtn').disabled=false;}
+});
+$('rows').addEventListener('click',async e=>{
+ const edit=e.target.closest('[data-edit]');
+ const del=e.target.closest('[data-del]');
+ const attach=e.target.closest('[data-attach]');
+ if(edit){const r=records.find(x=>x.id===edit.dataset.edit);if(r)showForm(r);}
+ if(del){
+  const r=records.find(x=>x.id===del.dataset.del);
+  if(r&&confirm('Tandakan rekod '+r.name+' sebagai dipadam? Rekod disimpan dalam sejarah.')){
+   try{
+    const {error}=await sb.from('evetting_records').update({deleted_at:new Date().toISOString(),deleted_by:currentUser.id}).eq('id',r.id);
+    if(error)throw error;
+    await loadData();
+    showMessage('Rekod dipadam daripada senarai aktif.');
+   }catch(err){showMessage('Gagal memadam: '+err.message,'error');}
+  }
+ }
+ if(attach){
+  const r=records.find(x=>x.id===attach.dataset.attach);
+  if(!r)return;
+  const choice=prompt('LAMPIRAN: '+r.name+'\n\n1 - Upload fail PDF / gambar\n2 - Lihat lampiran sedia ada');
+  const bucket=sb.storage.from('evetting-attachments');
+  if(choice==='1'){
+   const input=document.createElement('input');
+   input.type='file';input.accept='.pdf,.jpg,.jpeg,.png';input.multiple=true;
+   input.onchange=async()=>{
+    try{
+     const files=Array.from(input.files||[]);
+     if(!files.length)return;
+     for(const file of files){
+      if(file.size>20*1024*1024)throw new Error('Fail melebihi had 20 MB: '+file.name);
+      const ext=(file.name.split('.').pop()||'').toLowerCase();
+      const allowed=['pdf','jpg','jpeg','png'];
+      if(!allowed.includes(ext))throw new Error('Hanya PDF, JPG dan PNG dibenarkan: '+file.name);
+      const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      const unique=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now())+'_'+Math.floor(Math.random()*1000000);
+      const path=r.id+'/'+unique+'_'+safeName;
+      const {error}=await bucket.upload(path,file,{upsert:false,contentType:file.type||undefined});
+      if(error)throw error;
+     }
+     showMessage('Lampiran berjaya dimuat naik.');
+    }catch(err){showMessage('Gagal upload: '+err.message,'error');}
+   };
+   input.click();
+  }
+  if(choice==='2'){
+   let newTab=window.open('about:blank','_blank');
+   if(!newTab){showMessage('Browser menyekat tab baharu. Benarkan pop-up untuk laman ini dan cuba semula.','error');return;}
+   try{
+    const {data,error}=await bucket.list(r.id,{limit:100,sortBy:{column:'name',order:'desc'}});
+    if(error)throw error;
+    const files=(data||[]).filter(f=>f.name&&!f.id===false);
+    if(!files.length){newTab.close();showMessage('Tiada lampiran untuk kontraktor ini.');return;}
+    const names=files.map((f,i)=>(i+1)+' - '+f.name).join('\n');
+    const selected=prompt('PILIH LAMPIRAN:\n\n'+names+'\n\nMasukkan nombor:');
+    const index=Number(selected)-1;
+    if(selected===null||!Number.isInteger(index)||!files[index]){newTab.close();return;}
+    const {data:link,error:linkError}=await bucket.createSignedUrl(r.id+'/'+files[index].name,3600);
+    if(linkError)throw linkError;
+    newTab.location.href=link.signedUrl;
+   }catch(err){if(newTab&&!newTab.closed)newTab.close();showMessage('Gagal membuka lampiran: '+err.message,'error');}
+  }
+ }
+});
 ['search','statusFilter','sort'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',render));
-$('refreshBtn').addEventListener('click',refresh);$('printBtn').addEventListener('click',()=>window.print());
-function download(name,content,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}
+$('refreshBtn').addEventListener('click',refresh);
+$('printBtn').addEventListener('click',()=>window.print());
+function download(name,content,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 $('exportBtn').addEventListener('click',()=>download('Backup_eVetting_PMU_'+isoToday()+'.json',JSON.stringify({version:2,exportedAt:new Date().toISOString(),records,history:historyRows},null,2),'application/json'));
-$('csvBtn').addEventListener('click',()=>{const cols=['Nama','Syarikat','Kod Instalasi','Alamat Instalasi','No Rujukan','Tarikh Lulus','Tarikh Luput','Baki Hari','Status','Tarikh Semakan','Catatan'];const data=records.map(r=>[r.name,r.company,r.installationNo,r.installationAddress,r.ref,r.approved,r.expiry,daysLeft(r.expiry)??'',status({tarikh_luput:r.expiry}),r.checked,r.notes]);const csv=[cols,...data].map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');download('Laporan_eVetting_PMU_'+isoToday()+'.csv','\ufeff'+csv,'text/csv;charset=utf-8');});
-sb.auth.onAuthStateChange((_event,session)=>{if(!session){currentUser=null;$('appPanel').classList.add('hidden');$('loginPanel').classList.remove('hidden');}});
+$('csvBtn').addEventListener('click',()=>{
+ const cols=['Nama','Syarikat','Kod Instalasi','Alamat Instalasi','No Rujukan','Tarikh Lulus','Tarikh Luput','Baki Hari','Status','Tarikh Semakan','Catatan'];
+ const data=records.map(r=>[r.name,r.company,r.installationNo,r.installationAddress,r.ref,r.approved,r.expiry,daysLeft(r.expiry)??'',status({tarikh_luput:r.expiry}),r.checked,r.notes]);
+ const csv=[cols,...data].map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
+ download('Laporan_eVetting_PMU_'+isoToday()+'.csv','\ufeff'+csv,'text/csv;charset=utf-8');
+});
+sb.auth.onAuthStateChange((_event,session)=>{
+ if(!session){currentUser=null;$('appPanel').classList.add('hidden');$('loginPanel').classList.remove('hidden');}
+});
 init().catch(e=>{$('loginPanel').classList.remove('hidden');$('loginMessage').textContent='Ralat konfigurasi: '+e.message;});
 })();
 </script>
-</body></html>
+</body>
+</html>

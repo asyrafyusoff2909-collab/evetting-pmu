@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="ms">
 <head>
@@ -96,7 +97,6 @@ th{background:#f5f8fb;color:#42566a;font-size:11px;text-transform:uppercase;posi
 <select id="statusFilter"><option value="">Semua status</option><option>AKTIF</option><option>HAMPIR LUPUT</option><option>LUPUT</option><option>BELUM DISAHKAN</option></select>
 <select id="sort"><option value="expiry">Tarikh luput terdekat</option><option value="name">Nama A–Z</option><option value="company">Syarikat A–Z</option><option value="updated">Semakan terkini</option></select></div>
 <div class="tablewrap"><table><thead><tr><th>Bil.</th><th>Nama / ID</th><th>Syarikat</th><th>Kod Instalasi</th><th>Alamat Instalasi</th><th>Tarikh Lulus</th><th>Tarikh Luput</th><th>Baki Hari</th><th>Status</th><th>Semakan</th><th>Catatan</th><th>Tindakan</th></tr></thead><tbody id="rows"><tr><td colspan="12" class="empty">Memuatkan rekod…</td></tr></tbody></table></div><div class="footer" id="recordCount"></div></section>
-
 <div id="message"></div><div class="footer">Versi sambungan Supabase • Sila semak status dengan rekod rasmi sebelum keputusan akses.</div>
 </section></main>
 <script>
@@ -194,7 +194,12 @@ $('rows').addEventListener('click',async e=>{
  const edit=e.target.closest('[data-edit]');
  const del=e.target.closest('[data-del]');
  const attach=e.target.closest('[data-attach]');
- if(edit){const r=records.find(x=>x.id===edit.dataset.edit);if(r)showForm(r);}
+
+ if(edit){
+  const r=records.find(x=>x.id===edit.dataset.edit);
+  if(r)showForm(r);
+ }
+
  if(del){
   const r=records.find(x=>x.id===del.dataset.del);
   if(r&&confirm('Tandakan rekod '+r.name+' sebagai dipadam? Rekod disimpan dalam sejarah.')){
@@ -203,26 +208,36 @@ $('rows').addEventListener('click',async e=>{
     if(error)throw error;
     await loadData();
     showMessage('Rekod dipadam daripada senarai aktif.');
-   }catch(err){showMessage('Gagal memadam: '+err.message,'error');}
+   }catch(err){
+    showMessage('Gagal memadam: '+err.message,'error');
+   }
   }
  }
+
  if(attach){
   const r=records.find(x=>x.id===attach.dataset.attach);
   if(!r)return;
-  const choice=prompt('LAMPIRAN: '+r.name+'\n\n1 - Upload fail PDF / gambar\n2 - Lihat lampiran sedia ada');
+
+  const choice=prompt('LAMPIRAN: '+r.name+'\n\n1 - Upload fail PDF / gambar\n2 - Lihat lampiran sedia ada\n3 - Padam lampiran');
   const bucket=sb.storage.from('evetting-attachments');
+
   if(choice==='1'){
    const input=document.createElement('input');
-   input.type='file';input.accept='.pdf,.jpg,.jpeg,.png';input.multiple=true;
+   input.type='file';
+   input.accept='.pdf,.jpg,.jpeg,.png';
+   input.multiple=true;
+
    input.onchange=async()=>{
     try{
      const files=Array.from(input.files||[]);
      if(!files.length)return;
+
      for(const file of files){
       if(file.size>20*1024*1024)throw new Error('Fail melebihi had 20 MB: '+file.name);
       const ext=(file.name.split('.').pop()||'').toLowerCase();
       const allowed=['pdf','jpg','jpeg','png'];
       if(!allowed.includes(ext))throw new Error('Hanya PDF, JPG dan PNG dibenarkan: '+file.name);
+
       const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
       const unique=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now())+'_'+Math.floor(Math.random()*1000000);
       const path=r.id+'/'+unique+'_'+safeName;
@@ -230,26 +245,86 @@ $('rows').addEventListener('click',async e=>{
       if(error)throw error;
      }
      showMessage('Lampiran berjaya dimuat naik.');
-    }catch(err){showMessage('Gagal upload: '+err.message,'error');}
+    }catch(err){
+     showMessage('Gagal upload: '+err.message,'error');
+    }
    };
    input.click();
   }
+
   if(choice==='2'){
    let newTab=window.open('about:blank','_blank');
-   if(!newTab){showMessage('Browser menyekat tab baharu. Benarkan pop-up untuk laman ini dan cuba semula.','error');return;}
+   if(!newTab){
+    showMessage('Browser menyekat tab baharu. Benarkan pop-up untuk laman ini dan cuba semula.','error');
+    return;
+   }
+
    try{
     const {data,error}=await bucket.list(r.id,{limit:100,sortBy:{column:'name',order:'desc'}});
     if(error)throw error;
-    const files=(data||[]).filter(f=>f.name&&!f.id===false);
-    if(!files.length){newTab.close();showMessage('Tiada lampiran untuk kontraktor ini.');return;}
+
+    const files=(data||[]).filter(f=>f.name&&f.id);
+    if(!files.length){
+     newTab.close();
+     showMessage('Tiada lampiran untuk kontraktor ini.');
+     return;
+    }
+
     const names=files.map((f,i)=>(i+1)+' - '+f.name).join('\n');
     const selected=prompt('PILIH LAMPIRAN:\n\n'+names+'\n\nMasukkan nombor:');
     const index=Number(selected)-1;
-    if(selected===null||!Number.isInteger(index)||!files[index]){newTab.close();return;}
+
+    if(selected===null||!Number.isInteger(index)||!files[index]){
+     newTab.close();
+     return;
+    }
+
     const {data:link,error:linkError}=await bucket.createSignedUrl(r.id+'/'+files[index].name,3600);
     if(linkError)throw linkError;
     newTab.location.href=link.signedUrl;
-   }catch(err){if(newTab&&!newTab.closed)newTab.close();showMessage('Gagal membuka lampiran: '+err.message,'error');}
+
+   }catch(err){
+    if(newTab&&!newTab.closed)newTab.close();
+    showMessage('Gagal membuka lampiran: '+err.message,'error');
+   }
+  }
+
+  if(choice==='3'){
+   try{
+    const {data,error}=await bucket.list(r.id,{limit:100,sortBy:{column:'name',order:'desc'}});
+    if(error)throw error;
+
+    const files=(data||[]).filter(f=>f.name&&f.id);
+
+    if(!files.length){
+     showMessage('Tiada lampiran untuk dipadam.');
+     return;
+    }
+
+    const names=files.map((f,i)=>(i+1)+' - '+f.name).join('\n');
+    const selected=prompt('PILIH LAMPIRAN UNTUK DIPADAM:\n\n'+names+'\n\nMasukkan nombor lampiran:');
+
+    if(selected===null)return;
+
+    const index=Number(selected)-1;
+    if(!Number.isInteger(index)||!files[index]){
+     showMessage('Pilihan nombor tidak sah.','error');
+     return;
+    }
+
+    const fileName=files[index].name;
+    const filePath=r.id+'/'+fileName;
+
+    if(!confirm('Anda pasti mahu padam lampiran ini?\n\n'+fileName))return;
+
+    const {error:deleteError}=await bucket.remove([filePath]);
+    if(deleteError)throw deleteError;
+
+    showMessage('Lampiran berjaya dipadam.');
+
+   }catch(err){
+    showMessage('Gagal memadam lampiran: '+err.message,'error');
+   }
   }
  }
 });

@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="ms">
 <head>
@@ -253,39 +252,71 @@ $('rows').addEventListener('click',async e=>{
   }
 
   if(choice==='2'){
-   let newTab=window.open('about:blank','_blank');
+   // Buka tab secara terus semasa klik pengguna, kemudian kekalkan tab itu
+   // terbuka walaupun senarai fail atau pautan Supabase mengambil masa.
+   const newTab=window.open('about:blank','_blank');
+
    if(!newTab){
     showMessage('Browser menyekat tab baharu. Benarkan pop-up untuk laman ini dan cuba semula.','error');
     return;
    }
 
+   const showTabMessage=(title,message)=>{
+    if(!newTab.closed){
+     newTab.document.open();
+     newTab.document.write('<!doctype html><html lang="ms"><head><meta charset="utf-8"><title>'+title+'</title></head><body style="font-family:Arial,sans-serif;padding:28px;color:#1d2935"><h2>'+title+'</h2><p style="white-space:pre-wrap;line-height:1.5">'+message+'</p></body></html>');
+     newTab.document.close();
+    }
+   };
+
+   showTabMessage('Lampiran e-Vetting','Sedang mendapatkan senarai lampiran...');
+
    try{
-    const {data,error}=await bucket.list(r.id,{limit:100,sortBy:{column:'name',order:'desc'}});
+    const {data,error}=await bucket.list(r.id,{
+     limit:100,
+     sortBy:{column:'name',order:'desc'}
+    });
+
     if(error)throw error;
 
     const files=(data||[]).filter(f=>f.name&&f.id);
+
     if(!files.length){
-     newTab.close();
-     showMessage('Tiada lampiran untuk kontraktor ini.');
+     showTabMessage('Tiada lampiran','Tiada fail dijumpai untuk rekod: '+r.name+'\n\nFolder: '+r.id+'\n\nSemak sama ada fail telah dimuat naik ke folder rekod ini.');
+     showMessage('Tiada lampiran dijumpai untuk kontraktor ini.','error');
      return;
     }
 
     const names=files.map((f,i)=>(i+1)+' - '+f.name).join('\n');
     const selected=prompt('PILIH LAMPIRAN:\n\n'+names+'\n\nMasukkan nombor:');
-    const index=Number(selected)-1;
 
-    if(selected===null||!Number.isInteger(index)||!files[index]){
-     newTab.close();
+    if(selected===null){
+     showTabMessage('Paparan dibatalkan','Pemilihan lampiran telah dibatalkan. Tab ini boleh ditutup.');
      return;
     }
 
-    const {data:link,error:linkError}=await bucket.createSignedUrl(r.id+'/'+files[index].name,3600);
+    const index=Number(selected)-1;
+
+    if(!Number.isInteger(index)||!files[index]){
+     showTabMessage('Pilihan tidak sah','Nombor lampiran yang dimasukkan tidak sah. Sila cuba semula.');
+     showMessage('Pilihan nombor lampiran tidak sah.','error');
+     return;
+    }
+
+    showTabMessage('Lampiran e-Vetting','Sedang menyediakan fail: '+files[index].name);
+
+    const filePath=r.id+'/'+files[index].name;
+    const {data:link,error:linkError}=await bucket.createSignedUrl(filePath,3600);
+
     if(linkError)throw linkError;
+    if(!link||!link.signedUrl)throw new Error('Supabase tidak memulangkan pautan lampiran.');
+
     newTab.location.href=link.signedUrl;
+    showMessage('Lampiran berjaya dibuka dalam tab baharu.');
 
    }catch(err){
-    if(newTab&&!newTab.closed)newTab.close();
-    showMessage('Gagal membuka lampiran: '+err.message,'error');
+    showTabMessage('Gagal membuka lampiran','Ralat: '+(err.message||String(err))+'\n\nTab ini dikekalkan supaya mesej ralat boleh dibaca.');
+    showMessage('Gagal membuka lampiran: '+(err.message||String(err)),'error');
    }
   }
 

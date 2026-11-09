@@ -34,9 +34,18 @@ th{background:#f5f8fb;color:#42566a;font-size:11px;text-transform:uppercase;posi
 #loginPanel{max-width:480px;margin:30px auto}.hidden{display:none!important}
 #message{padding:10px;border-radius:8px;margin:10px 0;font-size:13px;display:none}
 #message.error{display:block;background:#fde8e7;color:#8d1b15}#message.ok{display:block;background:#e5f5ec;color:#12613c}
+#attachmentModal{position:fixed;inset:0;z-index:9999;background:#071827b8;display:flex;align-items:center;justify-content:center;padding:14px}
+.attachment-box{background:#fff;width:min(980px,100%);height:min(88vh,820px);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 45px #0005}
+.attachment-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;border-bottom:1px solid var(--line)}
+.attachment-head h2{font-size:17px;margin:0}.attachment-body{padding:14px 16px;overflow:auto;flex:1}
+.attachment-list{display:flex;flex-direction:column;gap:7px;margin:10px 0 14px}
+.attachment-file{background:#f5f8fb;color:var(--navy);border:1px solid var(--line);text-align:left;overflow-wrap:anywhere}
+.attachment-file:hover{background:#eaf2f8}
+.attachment-view{width:100%;height:55vh;border:1px solid var(--line);border-radius:8px;background:#eef2f5}
+.attachment-status{font-size:13px;color:var(--muted);margin:8px 0}
 @media(max-width:850px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.formgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:520px){.formgrid{grid-template-columns:1fr}.wide{grid-column:span 1}header h1{font-size:20px}}
-@media print{header{background:white;color:black;padding:0 0 15px}main{max-width:none;margin:0}.toolbar,.formpanel,.filters,.rowactions,.note,#loginPanel{display:none!important}.stats{grid-template-columns:repeat(5,1fr)}body{background:white}table{min-width:0}th,td{font-size:9px;padding:5px}}
+@media(max-width:520px){.formgrid{grid-template-columns:1fr}.wide{grid-column:span 1}header h1{font-size:20px}.attachment-box{height:94vh}.attachment-view{height:48vh}}
+@media print{header{background:white;color:black;padding:0 0 15px}main{max-width:none;margin:0}.toolbar,.formpanel,.filters,.rowactions,.note,#loginPanel,#attachmentModal{display:none!important}.stats{grid-template-columns:repeat(5,1fr)}body{background:white}table{min-width:0}th,td{font-size:9px;padding:5px}}
 </style>
 </head>
 <body>
@@ -114,6 +123,80 @@ const status = r => { if(!r.tarikh_luput)return 'BELUM DISAHKAN'; const n=daysLe
 const fmtDate = v => v ? v.split('-').reverse().join('/') : '—';
 function showMessage(msg,type='ok'){const el=$('message');el.textContent=msg;el.className=type;el.style.display='block';}
 function hideMessage(){$('message').style.display='none';}
+
+/* Paparan lampiran dalam halaman yang sama - tidak menggunakan prompt atau pop-up. */
+async function showAttachmentViewer(record,bucket){
+ const oldModal=$('attachmentModal');
+ if(oldModal)oldModal.remove();
+
+ const modal=document.createElement('div');
+ modal.id='attachmentModal';
+ modal.innerHTML=`
+  <div class="attachment-box">
+   <div class="attachment-head">
+    <h2>Lampiran: ${esc(record.name)}</h2>
+    <button type="button" class="danger" id="closeAttachment">Tutup</button>
+   </div>
+   <div class="attachment-body">
+    <div class="attachment-status" id="attachmentStatus">Sedang mendapatkan senarai lampiran...</div>
+    <div class="attachment-list" id="attachmentList"></div>
+    <iframe class="attachment-view" id="attachmentFrame" title="Paparan lampiran" style="display:none"></iframe>
+   </div>
+  </div>`;
+ document.body.appendChild(modal);
+
+ const close=()=>modal.remove();
+ $('closeAttachment').addEventListener('click',close);
+ modal.addEventListener('click',e=>{if(e.target===modal)close();});
+
+ try{
+  const {data,error}=await bucket.list(record.id,{limit:100,sortBy:{column:'name',order:'desc'}});
+  if(error)throw error;
+
+  const files=(data||[]).filter(f=>f.name && f.id);
+  const list=$('attachmentList');
+  const statusEl=$('attachmentStatus');
+
+  if(!files.length){
+   statusEl.textContent='Tiada lampiran dijumpai untuk kontraktor ini.';
+   showMessage('Tiada lampiran dijumpai untuk kontraktor ini.','error');
+   return;
+  }
+
+  statusEl.textContent='Pilih nama fail di bawah untuk melihat lampiran.';
+  files.forEach(file=>{
+   const btn=document.createElement('button');
+   btn.type='button';
+   btn.className='attachment-file';
+   btn.textContent='Lihat: '+file.name;
+   btn.addEventListener('click',async()=>{
+    btn.disabled=true;
+    statusEl.textContent='Sedang membuka '+file.name+'...';
+    try{
+     const filePath=record.id+'/'+file.name;
+     const {data:link,error:linkError}=await bucket.createSignedUrl(filePath,3600);
+     if(linkError)throw linkError;
+     if(!link||!link.signedUrl)throw new Error('Supabase tidak memulangkan pautan lampiran.');
+     const frame=$('attachmentFrame');
+     frame.src=link.signedUrl;
+     frame.style.display='block';
+     statusEl.textContent='Sedang memaparkan: '+file.name;
+     showMessage('Lampiran dipilih: '+file.name);
+    }catch(err){
+     statusEl.textContent='Gagal membuka lampiran: '+(err.message||String(err));
+     showMessage('Gagal membuka lampiran: '+(err.message||String(err)),'error');
+    }finally{
+     btn.disabled=false;
+    }
+   });
+   list.appendChild(btn);
+  });
+ }catch(err){
+  $('attachmentStatus').textContent='Gagal mendapatkan senarai lampiran: '+(err.message||String(err));
+  showMessage('Gagal mendapatkan senarai lampiran: '+(err.message||String(err)),'error');
+ }
+}
+
 function toDb(){
  return {nama:$('name').value.trim(),warganegara:$('nationality').value,no_ic:$('ic').value.trim(),jantina:$('gender').value,agama:$('religion').value,bangsa:$('race').value,alamat_syarikat:$('companyAddress').value.trim(),telefon_persendirian:$('personalPhone').value.trim(),telefon_syarikat:$('companyPhone').value.trim(),kod_instalasi:$('installationNo').value.trim(),alamat_instalasi:$('installationAddress').value.trim(),nama_syarikat:$('company').value.trim(),no_rujukan:$('ref').value.trim(),tarikh_lulus:$('approved').value||null,tarikh_luput:$('expiry').value||null,tarikh_semakan:$('checked').value||isoToday(),catatan:$('notes').value.trim()};
 }
@@ -252,72 +335,7 @@ $('rows').addEventListener('click',async e=>{
   }
 
   if(choice==='2'){
-   // Buka tab secara terus semasa klik pengguna, kemudian kekalkan tab itu
-   // terbuka walaupun senarai fail atau pautan Supabase mengambil masa.
-   const newTab=window.open('about:blank','_blank');
-
-   if(!newTab){
-    showMessage('Browser menyekat tab baharu. Benarkan pop-up untuk laman ini dan cuba semula.','error');
-    return;
-   }
-
-   const showTabMessage=(title,message)=>{
-    if(!newTab.closed){
-     newTab.document.open();
-     newTab.document.write('<!doctype html><html lang="ms"><head><meta charset="utf-8"><title>'+title+'</title></head><body style="font-family:Arial,sans-serif;padding:28px;color:#1d2935"><h2>'+title+'</h2><p style="white-space:pre-wrap;line-height:1.5">'+message+'</p></body></html>');
-     newTab.document.close();
-    }
-   };
-
-   showTabMessage('Lampiran e-Vetting','Sedang mendapatkan senarai lampiran...');
-
-   try{
-    const {data,error}=await bucket.list(r.id,{
-     limit:100,
-     sortBy:{column:'name',order:'desc'}
-    });
-
-    if(error)throw error;
-
-    const files=(data||[]).filter(f=>f.name&&f.id);
-
-    if(!files.length){
-     showTabMessage('Tiada lampiran','Tiada fail dijumpai untuk rekod: '+r.name+'\n\nFolder: '+r.id+'\n\nSemak sama ada fail telah dimuat naik ke folder rekod ini.');
-     showMessage('Tiada lampiran dijumpai untuk kontraktor ini.','error');
-     return;
-    }
-
-    const names=files.map((f,i)=>(i+1)+' - '+f.name).join('\n');
-    const selected=prompt('PILIH LAMPIRAN:\n\n'+names+'\n\nMasukkan nombor:');
-
-    if(selected===null){
-     showTabMessage('Paparan dibatalkan','Pemilihan lampiran telah dibatalkan. Tab ini boleh ditutup.');
-     return;
-    }
-
-    const index=Number(selected)-1;
-
-    if(!Number.isInteger(index)||!files[index]){
-     showTabMessage('Pilihan tidak sah','Nombor lampiran yang dimasukkan tidak sah. Sila cuba semula.');
-     showMessage('Pilihan nombor lampiran tidak sah.','error');
-     return;
-    }
-
-    showTabMessage('Lampiran e-Vetting','Sedang menyediakan fail: '+files[index].name);
-
-    const filePath=r.id+'/'+files[index].name;
-    const {data:link,error:linkError}=await bucket.createSignedUrl(filePath,3600);
-
-    if(linkError)throw linkError;
-    if(!link||!link.signedUrl)throw new Error('Supabase tidak memulangkan pautan lampiran.');
-
-    newTab.location.href=link.signedUrl;
-    showMessage('Lampiran berjaya dibuka dalam tab baharu.');
-
-   }catch(err){
-    showTabMessage('Gagal membuka lampiran','Ralat: '+(err.message||String(err))+'\n\nTab ini dikekalkan supaya mesej ralat boleh dibaca.');
-    showMessage('Gagal membuka lampiran: '+(err.message||String(err)),'error');
-   }
+   await showAttachmentViewer(r,bucket);
   }
 
   if(choice==='3'){
